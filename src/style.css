@@ -65,6 +65,8 @@ body {
 }
 
 .name-section {
+  display: flex;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
@@ -229,7 +231,8 @@ body {
 
 /* 이름 선택 트리거 버튼 */
 .name-trigger {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: var(--surface);
   color: var(--text);
   border: 1.5px solid var(--border);
@@ -507,4 +510,320 @@ body {
 
 .submit-row .submit-btn {
   flex: 7;
+}
+
+/* ===== 게임 목록 ===== */
+.game-btn {
+  flex: 0 0 52px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.game-btn:active {
+  background: var(--surface2);
+}
+
+.game-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 20;
+}
+
+.game-overlay.level-2 {
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 30;
+}
+
+.game-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(448px, calc(100% - 32px));
+  height: min(760px, calc(100dvh - 48px));
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px 16px;
+  overflow: hidden;
+}
+
+/* 중첩 모달: 내용 크기에 맞는 작은 팝업 */
+.game-modal.level-2 {
+  z-index: 31;
+  width: min(360px, calc(100% - 48px));
+  height: auto;
+  max-height: calc(100dvh - 48px);
+  background: var(--surface2);
+  padding: 22px 18px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.game-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.game-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-sub-title {
+  margin-bottom: 16px;
+}
+
+.game-count {
+  background: var(--accent);
+  color: #0f0f0f;
+  border-radius: 20px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.game-close-btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+}
+
+.game-close-btn:active {
+  background: var(--border);
+}
+
+/* 정렬 */
+.game-sort {
+  display: flex;
+  gap: 14px;
+  padding: 8px 2px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.game-sort-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.game-sort-btn.active {
+  color: var(--accent);
+}
+
+/* 목록: 박스 없이 구분선만 있는 리스트 */
+.game-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.game-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 2px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.game-item:last-child {
+  border-bottom: none;
+}
+
+.game-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  word-break: keep-all;
+}
+
+.game-item-players {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.game-delete-btn {
+  background: none;
+  border: none;
+  color: #6f6f6f;
+  font-size: 14px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.game-delete-btn:active {
+  color: #ff7b7b;
+}
+
+.game-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 48px 0;
+}
+
+/* 하단 큰 추가 버튼 */
+.game-open-add-btn {
+  width: 100%;
+  margin-top: 12px;
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+  border-radius: var(--radius);
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+
+.game-open-add-btn:active {
+  background: #b8e030;
+}
+
+/* 추가 폼 */
+.game-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-players-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.game-input {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px; /* iOS 확대 방지 */
+  font-family: "Noto Sans KR", sans-serif;
+}
+
+.game-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.game-input-num {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 12px 6px;
+}
+
+.game-range-sep,
+.game-unit {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.game-range-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.game-range-toggle input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.game-error {
+  font-size: 13px;
+  color: #ff7b7b;
+  margin-top: 4px;
+}
+
+.game-confirm-text {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  word-break: keep-all;
+}
+
+.game-confirm-text strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* 중첩 모달 하단 버튼 */
+.game-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.game-cancel-btn,
+.game-confirm-btn {
+  flex: 1;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+}
+
+.game-cancel-btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+
+.game-confirm-btn {
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+}
+
+.game-confirm-btn.danger {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.game-cancel-btn:disabled,
+.game-confirm-btn:disabled {
+  opacity: 0.5;
 }

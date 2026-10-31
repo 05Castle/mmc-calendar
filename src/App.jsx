@@ -3,6 +3,7 @@ import { db } from "./firebase";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import AdminPage from "./AdminPage";
+import GameModal, { GameButton } from "./GameModal";
 
 const BASE_MEMBERS = ["다혜", "세원", "오성", "태현", "해리"];
 
@@ -41,6 +42,7 @@ function MemberPage() {
   const [month, setMonth] = useState(now.getMonth());
   const [selectedName, setSelectedName] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
   const [myDates, setMyDates] = useState([]);
   const [allVotes, setAllVotes] = useState({});
   const [manualConfirmedDate, setManualConfirmedDate] = useState(null);
@@ -251,6 +253,7 @@ function MemberPage() {
       </div>
 
       <div className="name-section">
+        <GameButton onClick={() => setGameOpen(true)} />
         <button className="name-trigger" onClick={() => setSheetOpen(true)}>
           {selectedName || "이름을 선택하세요"}
           <span className="name-trigger-arrow">▾</span>
@@ -324,6 +327,8 @@ function MemberPage() {
         className={`sheet-overlay ${sheetOpen ? "open" : ""}`}
         onClick={() => setSheetOpen(false)}
       />
+
+      <GameModal open={gameOpen} onClose={() => setGameOpen(false)} />
 
       <div className={`sheet ${sheetOpen ? "open" : ""}`}>
         <div className="sheet-handle" />
