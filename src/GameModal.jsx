@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 
 const GAMES_DOC = ["config", "games"];
+const PLAYED_DOC = ["config", "played"];
 
 function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -31,6 +32,108 @@ function updateGames(updater) {
     const current = snap.exists() ? snap.data().games || [] : [];
     tx.set(ref, { games: updater(current) });
   });
+}
+
+// 플레이 완료: 게임 목록에서 제거 + config/played 기록 추가를 한 트랜잭션으로 처리
+function markPlayed(game, rating) {
+  const gamesRef = doc(db, ...GAMES_DOC);
+  const playedRef = doc(db, ...PLAYED_DOC);
+  return runTransaction(db, async (tx) => {
+    const gSnap = await tx.get(gamesRef);
+    const pSnap = await tx.get(playedRef);
+    const current = gSnap.exists() ? gSnap.data().games || [] : [];
+    const target = current.find((g) => g.id === game.id);
+    if (!target) return; // 다른 사람이 이미 처리함 → 기록 중복 방지
+    const records = pSnap.exists() ? pSnap.data().records || [] : [];
+    tx.set(gamesRef, { games: current.filter((g) => g.id !== game.id) });
+    tx.set(playedRef, {
+      records: [
+        ...records,
+        {
+          id: target.id,
+          name: target.name,
+          min: target.min,
+          max: target.max,
+          rating, // 0.5 단위 숫자, 건너뛰면 null
+          playedAt: Date.now(),
+        },
+      ],
+    });
+  });
+}
+
+const STAR_PATH =
+  "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
+
+// 0.5 단위 별점: 탭하거나 손가락을 좌우로 끌어서 채운다
+function StarRating({ value, onChange }) {
+  const ref = useRef(null);
+  const dragging = useRef(false);
+
+  const valueFromX = (clientX) => {
+    const rect = ref.current.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const v = Math.ceil(ratio * 10) / 2; // 0.5 단위로 올림
+    return Math.min(5, Math.max(0.5, v));
+  };
+
+  const handleDown = (e) => {
+    dragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    onChange(valueFromX(e.clientX));
+  };
+  const handleMove = (e) => {
+    if (dragging.current) onChange(valueFromX(e.clientX));
+  };
+  const handleUp = () => {
+    dragging.current = false;
+  };
+  const handleKey = (e) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      onChange(Math.min(5, value + 0.5));
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      onChange(Math.max(0.5, value - 0.5));
+    }
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="game-stars"
+      role="slider"
+      tabIndex={0}
+      aria-label="별점"
+      aria-valuemin={0.5}
+      aria-valuemax={5}
+      aria-valuenow={value || undefined}
+      onPointerDown={handleDown}
+      onPointerMove={handleMove}
+      onPointerUp={handleUp}
+      onPointerCancel={handleUp}
+      onKeyDown={handleKey}
+    >
+      {[0, 1, 2, 3, 4].map((i) => {
+        const fill = Math.min(1, Math.max(0, value - i)); // 0 / 0.5 / 1
+        return (
+          <div key={i} className="game-star">
+            <svg className="base" viewBox="0 0 24 24" aria-hidden="true">
+              <path d={STAR_PATH} />
+            </svg>
+            <svg
+              className="fill"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              style={{ clipPath: `inset(0 ${(1 - fill) * 100}% 0 0)` }}
+            >
+              <path d={STAR_PATH} />
+            </svg>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function DiceIcon() {
@@ -123,6 +226,8 @@ export default function GameModal({ open, onClose }) {
 
   // 중첩 모달: 삭제 확인
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteStep, setDeleteStep] = useState("choose"); // "choose" | "rate"
+  const [rating, setRating] = useState(0); // 0 = 아직 선택 안 함
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
@@ -181,10 +286,10 @@ export default function GameModal({ open, onClose }) {
     const max = isRange ? Number(maxPlayers) : min;
 
     if (!trimmed) return setAddError("게임 이름을 입력해주세요.");
-    if (!Number.isInteger(min) || min < 1 || min > 99)
-      return setAddError("인원수는 1~99 사이 숫자로 입력해주세요.");
-    if (isRange && (!Number.isInteger(max) || max < 1 || max > 99))
-      return setAddError("최대 인원수를 1~99 사이 숫자로 입력해주세요.");
+    if (!Number.isInteger(min) || min < 1 || min > 9)
+      return setAddError("인원수는 1~9 사이 숫자로 입력해주세요.");
+    if (isRange && (!Number.isInteger(max) || max < 1 || max > 9))
+      return setAddError("최대 인원수를 1~9 사이 숫자로 입력해주세요.");
     if (max < min) return setAddError("최대 인원이 최소 인원보다 작아요.");
 
     setSaving(true);
@@ -211,12 +316,20 @@ export default function GameModal({ open, onClose }) {
 
   const askDelete = (game) => {
     setDeleteError("");
+    setDeleteStep("choose");
+    setRating(0);
     setDeleteTarget(game);
   };
 
   const closeDelete = () => {
     if (deleting) return;
     setDeleteTarget(null);
+  };
+
+  const goRate = () => {
+    setDeleteError("");
+    setRating(0);
+    setDeleteStep("rate");
   };
 
   const handleDelete = async () => {
@@ -230,6 +343,20 @@ export default function GameModal({ open, onClose }) {
       setDeleteTarget(null);
     } catch {
       setDeleteError("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handlePlayed = async (value) => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await markPlayed(deleteTarget, value);
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError("저장에 실패했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setDeleting(false);
     }
@@ -309,8 +436,6 @@ export default function GameModal({ open, onClose }) {
       {/* 2단계: 게임 추가 */}
       {addOpen && (
         <Layer label="게임 추가" level={2} small>
-          <h2 className="game-modal-title game-sub-title">게임 추가</h2>
-
           <div className="game-form">
             <input
               className="game-input"
@@ -348,7 +473,7 @@ export default function GameModal({ open, onClose }) {
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={99}
+                max={9}
                 placeholder={isRange ? "최소" : "인원"}
                 value={minPlayers}
                 onChange={(e) => setMinPlayers(e.target.value)}
@@ -362,7 +487,7 @@ export default function GameModal({ open, onClose }) {
                     type="number"
                     inputMode="numeric"
                     min={1}
-                    max={99}
+                    max={9}
                     placeholder="최대"
                     value={maxPlayers}
                     onChange={(e) => setMaxPlayers(e.target.value)}
@@ -396,32 +521,91 @@ export default function GameModal({ open, onClose }) {
         </Layer>
       )}
 
-      {/* 2단계: 삭제 확인 */}
+      {/* 2단계: 게임 정리 (플레이 완료 / 삭제) */}
       {deleteTarget && (
-        <Layer label="게임 삭제 확인" level={2} small>
-          <h2 className="game-modal-title game-sub-title">게임 삭제</h2>
-          <p className="game-confirm-text">
-            <strong>{deleteTarget.name}</strong> 게임을 삭제할까요?
-          </p>
-          {deleteError && <p className="game-error">{deleteError}</p>}
-          <div className="game-actions">
-            <button
-              type="button"
-              className="game-cancel-btn"
-              onClick={closeDelete}
-              disabled={deleting}
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              className="game-confirm-btn danger"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              삭제
-            </button>
-          </div>
+        <Layer label="게임 정리" level={2} small>
+          {deleteStep === "choose" ? (
+            <>
+              <h2 className="game-modal-title">
+                <p>
+                  <strong>{deleteTarget.name}</strong> 게임을 어떻게 할까요?
+                </p>
+              </h2>
+
+              <p className="game-hint">
+                플레이 완료: 기록으로 남기고 목록에서 제거
+                <br />
+                삭제: 기록 없이 제거 (잘못 등록·구매 취소)
+              </p>
+              {deleteError && <p className="game-error">{deleteError}</p>}
+              <div className="game-choice">
+                <button
+                  type="button"
+                  className="game-confirm-btn game-played-btn"
+                  onClick={goRate}
+                  disabled={deleting}
+                >
+                  플레이 완료
+                </button>
+                <div className="game-actions">
+                  <button
+                    type="button"
+                    className="game-cancel-btn"
+                    onClick={closeDelete}
+                    disabled={deleting}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="game-confirm-btn danger"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="game-back-btn"
+                onClick={() => setDeleteStep("choose")}
+                disabled={deleting}
+              >
+                ‹ 뒤로
+              </button>
+              <h2 className="game-modal-title game-sub-title">플레이 완료</h2>
+              <p className="game-confirm-text">
+                <strong>{deleteTarget.name}</strong>은(는) 어땠나요?
+              </p>
+              <StarRating value={rating} onChange={setRating} />
+              <p className={`game-rating-value ${rating ? "" : "empty"}`}>
+                {rating ? rating.toFixed(1) : "별을 눌러 점수를 매겨주세요"}
+              </p>
+              {deleteError && <p className="game-error">{deleteError}</p>}
+              <div className="game-actions">
+                <button
+                  type="button"
+                  className="game-cancel-btn"
+                  onClick={() => handlePlayed(null)}
+                  disabled={deleting}
+                >
+                  건너뛰기
+                </button>
+                <button
+                  type="button"
+                  className="game-confirm-btn"
+                  onClick={() => handlePlayed(rating)}
+                  disabled={deleting || !rating}
+                >
+                  저장
+                </button>
+              </div>
+            </>
+          )}
         </Layer>
       )}
     </>

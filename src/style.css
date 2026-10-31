@@ -660,8 +660,9 @@ body {
   gap: 8px;
 }
 
-.game-sub-title {
-  margin-bottom: 16px;
+.game-modal-title strong {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .game-count {
@@ -917,4 +918,103 @@ body {
 .game-cancel-btn:disabled,
 .game-confirm-btn:disabled {
   opacity: 0.5;
+}
+
+/* 게임 정리 팝업: 플레이 완료 / 삭제 */
+.game-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  word-break: keep-all;
+}
+
+.game-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.game-choice .game-actions {
+  margin-top: 0;
+}
+
+.game-played-btn {
+  flex: none;
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+}
+
+.game-back-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 0 0 10px;
+  margin-top: -6px;
+  cursor: pointer;
+}
+
+.game-back-btn:disabled {
+  opacity: 0.5;
+}
+
+/* 별점 */
+.game-stars {
+  display: flex;
+  width: 250px;
+  max-width: 100%;
+  margin: 18px auto 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.game-stars:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 8px;
+}
+
+.game-star {
+  position: relative;
+  flex: 1;
+  aspect-ratio: 1;
+}
+
+.game-star svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.game-star .base {
+  fill: #454545;
+}
+
+.game-star .fill {
+  fill: var(--accent);
+}
+
+.game-rating-value {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.game-rating-value.empty {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  padding: 9px 0;
 }
