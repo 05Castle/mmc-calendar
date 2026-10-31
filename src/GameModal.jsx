@@ -77,17 +77,29 @@ export function GameButton({ onClick }) {
   );
 }
 
-function Layer({ label, level = 1, small = false, children }) {
-  // level 1: 게임 목록 모달 / level 2: 그 위에 뜨는 중첩 모달
+function Layer({
+  label,
+  level = 1,
+  small = false,
+  closing = false,
+  onClosed,
+  children,
+}) {
+  // level 1: 게임 목록 (하단 시트) / level 2: 그 위에 뜨는 중앙 팝업
   // 오버레이를 눌러도 닫히지 않는다 (버튼으로만 닫기)
   return (
     <>
-      <div className={`game-overlay level-${level}`} />
       <div
-        className={`game-modal level-${level} ${small ? "small" : ""}`}
+        className={`game-overlay level-${level} ${closing ? "closing" : ""}`}
+      />
+      <div
+        className={`game-modal level-${level} ${small ? "small" : ""} ${closing ? "closing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={label}
+        onAnimationEnd={(e) => {
+          if (closing && e.target === e.currentTarget) onClosed?.();
+        }}
       >
         {children}
       </div>
@@ -98,6 +110,7 @@ function Layer({ label, level = 1, small = false, children }) {
 export default function GameModal({ open, onClose }) {
   const [games, setGames] = useState(null); // null = 불러오는 중
   const [sortKey, setSortKey] = useState("name"); // "name" | "players"
+  const [closing, setClosing] = useState(false); // 닫힘 애니메이션 중
 
   // 중첩 모달: 게임 추가
   const [addOpen, setAddOpen] = useState(false);
@@ -135,6 +148,12 @@ export default function GameModal({ open, onClose }) {
 
   if (!open) return null;
 
+  const requestClose = () => setClosing(true);
+  const finishClose = () => {
+    setClosing(false);
+    onClose();
+  };
+
   const openAdd = () => {
     setName("");
     setIsRange(false);
@@ -162,10 +181,10 @@ export default function GameModal({ open, onClose }) {
     const max = isRange ? Number(maxPlayers) : min;
 
     if (!trimmed) return setAddError("게임 이름을 입력해주세요.");
-    if (!Number.isInteger(min) || min < 1 || min > 9)
-      return setAddError("인원수는 1~9 사이 숫자로 입력해주세요.");
-    if (isRange && (!Number.isInteger(max) || max < 1 || max > 9))
-      return setAddError("최대 인원수를 1~9 사이 숫자로 입력해주세요.");
+    if (!Number.isInteger(min) || min < 1 || min > 99)
+      return setAddError("인원수는 1~99 사이 숫자로 입력해주세요.");
+    if (isRange && (!Number.isInteger(max) || max < 1 || max > 99))
+      return setAddError("최대 인원수를 1~99 사이 숫자로 입력해주세요.");
     if (max < min) return setAddError("최대 인원이 최소 인원보다 작아요.");
 
     setSaving(true);
@@ -222,13 +241,22 @@ export default function GameModal({ open, onClose }) {
   return (
     <>
       {/* 1단계: 게임 목록 */}
-      <Layer label="게임 목록" level={1}>
+      <Layer
+        label="게임 목록"
+        level={1}
+        closing={closing}
+        onClosed={finishClose}
+      >
         <div className="game-modal-header">
           <h2 className="game-modal-title">
             게임 목록
             {games && <span className="game-count">{games.length}</span>}
           </h2>
-          <button type="button" className="game-close-btn" onClick={onClose}>
+          <button
+            type="button"
+            className="game-close-btn"
+            onClick={requestClose}
+          >
             닫기
           </button>
         </div>
@@ -320,7 +348,7 @@ export default function GameModal({ open, onClose }) {
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={9}
+                max={99}
                 placeholder={isRange ? "최소" : "인원"}
                 value={minPlayers}
                 onChange={(e) => setMinPlayers(e.target.value)}
@@ -334,7 +362,7 @@ export default function GameModal({ open, onClose }) {
                     type="number"
                     inputMode="numeric"
                     min={1}
-                    max={9}
+                    max={99}
                     placeholder="최대"
                     value={maxPlayers}
                     onChange={(e) => setMaxPlayers(e.target.value)}

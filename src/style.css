@@ -512,7 +512,6 @@ body {
   flex: 7;
 }
 
-
 /* ===== 게임 목록 ===== */
 .game-btn {
   flex: 0 0 52px;
@@ -557,6 +556,81 @@ body {
   flex-direction: column;
   padding: 18px 16px 16px;
   overflow: hidden;
+}
+
+/* 1단계: 하단에서 올라오는 시트 */
+.game-modal.level-1 {
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  transform: none;
+  width: 100%;
+  max-width: 480px;
+  height: min(88dvh, 760px);
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  animation: game-sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.game-modal.level-1.closing {
+  animation: game-sheet-down 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.game-overlay.level-1 {
+  animation: game-fade-in 0.3s ease;
+}
+
+.game-overlay.level-1.closing {
+  animation: game-fade-out 0.25s ease forwards;
+}
+
+@keyframes game-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes game-sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes game-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes game-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* 애니메이션 줄이기 설정: 움직임 없이 즉시 (닫힘 이벤트는 유지) */
+@media (prefers-reduced-motion: reduce) {
+  .game-modal.level-1,
+  .game-modal.level-1.closing,
+  .game-overlay.level-1,
+  .game-overlay.level-1.closing {
+    animation-duration: 0.01ms;
+  }
 }
 
 /* 중첩 모달: 내용 크기에 맞는 작은 팝업 */
