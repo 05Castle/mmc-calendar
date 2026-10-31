@@ -14,11 +14,13 @@ function formatPlayers(game) {
 
 function sortGames(games, sortKey) {
   const byName = (a, b) => a.name.localeCompare(b.name, "ko");
-  return games.slice().sort(
-    sortKey === "players"
-      ? (a, b) => a.min - b.min || a.max - b.max || byName(a, b)
-      : byName,
-  );
+  return games
+    .slice()
+    .sort(
+      sortKey === "players"
+        ? (a, b) => a.min - b.min || a.max - b.max || byName(a, b)
+        : byName,
+    );
 }
 
 // 동시에 여러 명이 수정해도 덮어쓰지 않도록 트랜잭션으로 읽고-수정-저장
@@ -32,24 +34,32 @@ function updateGames(updater) {
 }
 
 function DiceIcon() {
+  // 등각 투영(isometric) 입체 주사위: 윗면 / 왼쪽면 / 오른쪽면
+  const pip = { fill: "var(--surface)" };
   return (
     <svg
-      width="22"
-      height="22"
+      width="28"
+      height="28"
       viewBox="0 0 24 24"
-      fill="none"
+      fill="currentColor"
       stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
+      strokeWidth="1"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="3" width="18" height="18" rx="4" />
-      <circle cx="8.5" cy="8.5" r="1" fill="currentColor" />
-      <circle cx="15.5" cy="8.5" r="1" fill="currentColor" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-      <circle cx="8.5" cy="15.5" r="1" fill="currentColor" />
-      <circle cx="15.5" cy="15.5" r="1" fill="currentColor" />
+      {/* 면: 위가 가장 밝고 오른쪽이 가장 어둡게 */}
+      <polygon points="12,2 20.66,7 12,12 3.34,7" fillOpacity="1" />
+      <polygon points="3.34,7 12,12 12,22 3.34,17" fillOpacity="0.72" />
+      <polygon points="12,12 20.66,7 20.66,17 12,22" fillOpacity="0.45" />
+      {/* 눈: 윗면 1, 왼쪽 2, 오른쪽 3 */}
+      <g stroke="none" style={pip}>
+        <circle cx="12" cy="7" r="1.1" />
+        <circle cx="5.9" cy="11.4" r="1" />
+        <circle cx="9.4" cy="17.4" r="1" />
+        <circle cx="14.2" cy="13.3" r="1" />
+        <circle cx="16.3" cy="14.5" r="1" />
+        <circle cx="18.5" cy="15.8" r="1" />
+      </g>
     </svg>
   );
 }
@@ -139,8 +149,9 @@ export default function GameModal({ open, onClose }) {
     setAddOpen(false);
   };
 
-  const toggleRange = () => {
-    setIsRange((r) => !r);
+  const selectMode = (range) => {
+    if (range === isRange) return;
+    setIsRange(range);
     setMaxPlayers("");
     setAddError("");
   };
@@ -151,10 +162,10 @@ export default function GameModal({ open, onClose }) {
     const max = isRange ? Number(maxPlayers) : min;
 
     if (!trimmed) return setAddError("게임 이름을 입력해주세요.");
-    if (!Number.isInteger(min) || min < 1 || min > 99)
-      return setAddError("인원수는 1~99 사이 숫자로 입력해주세요.");
-    if (isRange && (!Number.isInteger(max) || max < 1 || max > 99))
-      return setAddError("최대 인원수를 1~99 사이 숫자로 입력해주세요.");
+    if (!Number.isInteger(min) || min < 1 || min > 9)
+      return setAddError("인원수는 1~9 사이 숫자로 입력해주세요.");
+    if (isRange && (!Number.isInteger(max) || max < 1 || max > 9))
+      return setAddError("최대 인원수를 1~9 사이 숫자로 입력해주세요.");
     if (max < min) return setAddError("최대 인원이 최소 인원보다 작아요.");
 
     setSaving(true);
@@ -283,13 +294,33 @@ export default function GameModal({ open, onClose }) {
               onChange={(e) => setName(e.target.value)}
               onKeyDown={onEnter}
             />
+            <div className="game-mode-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isRange}
+                className={`game-mode-tab ${!isRange ? "active" : ""}`}
+                onClick={() => selectMode(false)}
+              >
+                단일 인원
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isRange}
+                className={`game-mode-tab ${isRange ? "active" : ""}`}
+                onClick={() => selectMode(true)}
+              >
+                인원 범위
+              </button>
+            </div>
             <div className="game-players-inputs">
               <input
                 className="game-input game-input-num"
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={99}
+                max={9}
                 placeholder={isRange ? "최소" : "인원"}
                 value={minPlayers}
                 onChange={(e) => setMinPlayers(e.target.value)}
@@ -303,7 +334,7 @@ export default function GameModal({ open, onClose }) {
                     type="number"
                     inputMode="numeric"
                     min={1}
-                    max={99}
+                    max={9}
                     placeholder="최대"
                     value={maxPlayers}
                     onChange={(e) => setMaxPlayers(e.target.value)}
@@ -313,10 +344,6 @@ export default function GameModal({ open, onClose }) {
               )}
               <span className="game-unit">명</span>
             </div>
-            <label className="game-range-toggle">
-              <input type="checkbox" checked={isRange} onChange={toggleRange} />
-              인원을 범위로 입력 (예: 2~5명)
-            </label>
             {addError && <p className="game-error">{addError}</p>}
           </div>
 

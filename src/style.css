@@ -512,6 +512,7 @@ body {
   flex: 7;
 }
 
+
 /* ===== 게임 목록 ===== */
 .game-btn {
   flex: 0 0 52px;
@@ -641,6 +642,7 @@ body {
 .game-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
@@ -754,20 +756,35 @@ body {
   font-size: 15px;
 }
 
-.game-range-toggle {
+/* 단일 / 범위 탭 */
+.game-mode-tabs {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 3px;
 }
 
-.game-range-toggle input {
-  accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
+.game-mode-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.game-mode-tab.active {
+  background: var(--accent);
+  color: #0f0f0f;
 }
 
 .game-error {
