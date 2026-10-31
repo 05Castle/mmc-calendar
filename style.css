@@ -1,0 +1,504 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap");
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #2a2a2a; /* 기존 #1c1c1c */
+  --surface2: #333; /* 기존 #272727 */
+  --border: #444;
+  --text: #f0f0f0;
+  --text-muted: #a3a3a3;
+  --accent: #c3ff10;
+  --accent-bg: rgba(200, 245, 66, 0.12);
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 28px 16px 100px;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px 8px;
+  margin-bottom: 16px;
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  padding: 4px 14px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.nav-btn.disabled {
+  color: var(--border);
+  cursor: default;
+}
+
+.month-label {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.name-section {
+  margin-bottom: 20px;
+}
+
+.name-select {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 16px;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+
+.name-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dates-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.date-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  user-select: none;
+}
+
+.date-card.no-name {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.date-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.date-dow {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.date-card.selected .date-dow {
+  color: var(--accent);
+}
+
+.date-day {
+  color: #d7d7d7;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+.date-count {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.date-card.most-voted .date-dow {
+  color: #eaeaea;
+}
+.date-card.most-voted .date-day {
+  color: #ffffff;
+}
+.date-card.most-voted .voters {
+  color: #cfcfcf;
+}
+
+.count-badge {
+  background: var(--accent);
+  color: #0f0f0f;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.count-empty {
+  color: var(--border);
+  font-size: 12px;
+}
+
+.voters {
+  font-size: 10px;
+  color: #7c7c7c;
+  line-height: 1.4;
+  text-align: center;
+  word-break: keep-all;
+  margin-top: 2px;
+  min-height: 30px;
+}
+
+.submit-wrap {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: linear-gradient(to top, var(--bg) 75%, transparent);
+}
+
+.submit-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+  border-radius: var(--radius);
+  padding: 17px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+  letter-spacing: -0.3px;
+}
+
+.submit-btn:active {
+  background: #b8e030;
+}
+
+.submit-btn.done {
+  background: var(--surface2);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+
+.submit-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* 이름 선택 트리거 버튼 */
+.name-trigger {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 16px;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.name-trigger:active {
+  background: var(--surface2);
+}
+
+.name-trigger-arrow {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* 바텀시트 오버레이 */
+.sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.sheet-overlay.open {
+  display: block;
+  opacity: 1;
+}
+
+/* 바텀시트 */
+.sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 40px;
+  z-index: 11;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sheet.open {
+  transform: translateY(0);
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 20px;
+}
+
+.sheet-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.sheet-name-btn {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 16px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sheet-name-btn:active {
+  background: var(--border);
+}
+
+.sheet-name-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* 바텀시트 그리드 2열로 변경 */
+.sheet-grid {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* 어드민 섹션 */
+.admin-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.admin-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.admin-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.admin-empty {
+  font-size: 13px;
+  color: var(--border);
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* 게스트 입력 */
+.guest-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.guest-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 11px 14px;
+}
+
+.guest-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.guest-add-btn {
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+}
+
+/* 게스트 목록 */
+.guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.guest-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.guest-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* 초기화 버튼 */
+.reset-btn {
+  width: 100%;
+  background: transparent;
+  color: var(--red);
+  border: 1.5px solid var(--red);
+  border-radius: var(--radius);
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+}
+
+.reset-btn:active {
+  background: rgba(255, 92, 92, 0.1);
+}
+
+.admin-msg {
+  text-align: center;
+  color: var(--accent);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+/* 멤버 화면으로 링크 */
+.back-link {
+  display: block;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-decoration: none;
+  margin-top: 8px;
+  padding: 12px;
+}
+
+/* 커스텀 날짜 카드 (주말 아닌 날) */
+.date-card.extra .date-dow {
+  color: #f5a623;
+}
+
+/* 참여불가 표시 */
+.pass-notice {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+/* 제출 버튼 행 */
+.submit-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pass-btn {
+  flex: 3;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 17px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+}
+
+.pass-btn:active {
+  background: var(--surface2);
+}
+
+.submit-row .submit-btn {
+  flex: 7;
+}
