@@ -558,27 +558,6 @@ body {
   overflow: hidden;
 }
 
-/* 1단계: 하단에서 올라오는 시트 */
-.game-modal.level-1 {
-  top: auto;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  transform: none;
-  width: 100%;
-  max-width: 480px;
-  height: min(88dvh, 760px);
-  border-radius: 20px 20px 0 0;
-  border-bottom: none;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  animation: game-sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.game-modal.level-1.closing {
-  animation: game-sheet-down 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
 .game-overlay.level-1 {
   animation: game-fade-in 0.3s ease;
 }
@@ -625,8 +604,8 @@ body {
 
 /* 애니메이션 줄이기 설정: 움직임 없이 즉시 (닫힘 이벤트는 유지) */
 @media (prefers-reduced-motion: reduce) {
-  .game-modal.level-1,
-  .game-modal.level-1.closing,
+  .game-sheet,
+  .game-sheet.closing,
   .game-overlay.level-1,
   .game-overlay.level-1.closing {
     animation-duration: 0.01ms;
@@ -644,12 +623,6 @@ body {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
-.game-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
 
 .game-modal-title {
   font-size: 18px;
@@ -674,21 +647,7 @@ body {
   font-weight: 700;
 }
 
-.game-close-btn {
-  background: var(--surface2);
-  color: var(--text);
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
-  cursor: pointer;
-}
 
-.game-close-btn:active {
-  background: var(--border);
-}
 
 /* 정렬 */
 .game-sort {
@@ -1017,4 +976,309 @@ body {
   color: var(--text-muted);
   letter-spacing: 0;
   padding: 9px 0;
+}
+
+/* 검색 */
+.game-search {
+  position: relative;
+  margin-top: 8px;
+}
+
+.game-search-input {
+  width: 100%;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 38px 11px 14px;
+  font-size: 16px; /* iOS 확대 방지 */
+  font-family: "Noto Sans KR", sans-serif;
+}
+
+.game-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.game-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.game-item-rating {
+  min-width: 48px;
+  text-align: right;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 임시: 플레이 기록 일괄 등록 (admin) */
+.bulk-textarea {
+  width: 100%;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-family: "Noto Sans KR", sans-serif;
+  resize: vertical;
+}
+
+.bulk-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.bulk-result {
+  margin-top: 12px;
+}
+
+.bulk-summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.bulk-summary strong {
+  color: var(--accent);
+}
+
+.bulk-error {
+  font-size: 12px;
+  color: #ff7b7b;
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.bulk-preview {
+  margin-top: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 4px 12px;
+}
+
+.bulk-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bulk-preview-row:last-child {
+  border-bottom: none;
+}
+
+.bulk-preview-row span:last-child {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.bulk-save-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.bulk-save-btn:disabled {
+  opacity: 0.4;
+}
+
+.game-empty-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+/* ===== 게임 목록 시트 (폴더 탭 디자인) ===== */
+.game-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 480px;
+  height: min(88dvh, 760px);
+  z-index: 21;
+  animation: game-sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.game-sheet.closing {
+  animation: game-sheet-down 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* 시트 위에 떠 있는 닫기 버튼 */
+.game-float-close {
+  position: absolute;
+  top: -54px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.game-float-close:active {
+  background: var(--surface2);
+}
+
+.game-modal.level-1 {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  z-index: auto;
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+}
+
+/* 탭: 시트 상단을 가득 채우는 폴더 탭 */
+.game-tabs {
+  display: flex;
+  flex: none;
+  border-bottom: 1.5px solid var(--border);
+}
+
+.game-tab {
+  position: relative;
+  flex: 1;
+  background: var(--bg);
+  border: none;
+  padding: 17px 0 16px;
+  color: var(--text-muted);
+  font-size: 17px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.game-tab + .game-tab {
+  border-left: 1.5px solid var(--border);
+}
+
+.game-tab span {
+  margin-left: 3px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.game-tab.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.game-tab.active span {
+  color: var(--accent);
+}
+
+.game-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1.5px;
+  height: 2.5px;
+  background: var(--accent);
+}
+
+/* 탭 아래 본문 */
+.game-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.game-search {
+  margin-top: 0;
+}
+
+.game-search-input {
+  padding: 14px 40px 14px 16px;
+  border-radius: 14px;
+}
+
+.game-sort {
+  gap: 16px;
+  padding: 12px 2px 10px;
+}
+
+/* 목록: 행 높이를 넉넉하게, 스크롤바는 얇고 어둡게 */
+.game-list {
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+
+.game-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.game-list::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+.game-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 두 목록(보유 중 / 플레이 완료)의 행 높이를 같게: 높이는 min-height가 정한다 */
+.game-item {
+  min-height: 58px;
+  padding: 0 2px;
+}
+
+.game-item-name {
+  font-size: 16px;
+}
+
+.game-item-players {
+  font-size: 14px;
+}
+
+/* 삭제 버튼은 행 높이에 영향 없이, 터치 영역만 행 전체 높이로 */
+.game-delete-btn {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  padding: 0 10px;
+}
+
+.game-open-add-btn {
+  margin-top: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  font-size: 17px;
 }

@@ -24,6 +24,33 @@ function sortGames(games, sortKey) {
     );
 }
 
+// ===== 검색 =====
+// 대소문자·띄어쓰기·특수문자를 무시하고, 한글은 초성만 입력해도 찾는다 (예: ㅁㄷㅁㅅ)
+const CHOSUNG = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+
+function normalize(str) {
+  return str.toLowerCase().replace(/[\s\-_:'’".,!?·&]/g, "");
+}
+
+function toChosung(str) {
+  return [...str]
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      return code >= 0xac00 && code <= 0xd7a3
+        ? CHOSUNG[Math.floor((code - 0xac00) / 588)]
+        : ch;
+    })
+    .join("");
+}
+
+function matchesQuery(name, query) {
+  const q = normalize(query);
+  if (!q) return true;
+  const n = normalize(name);
+  if (n.includes(q)) return true;
+  return /^[ㄱ-ㅎ]+$/.test(q) && toChosung(n).includes(q);
+}
+
 // 동시에 여러 명이 수정해도 덮어쓰지 않도록 트랜잭션으로 읽고-수정-저장
 function updateGames(updater) {
   const ref = doc(db, ...GAMES_DOC);
@@ -186,23 +213,55 @@ function Layer({
   small = false,
   closing = false,
   onClosed,
+  onClose, // level 1 전용: 시트 위에 떠 있는 닫기 버튼
   children,
 }) {
-  // level 1: 게임 목록 (하단 시트) / level 2: 그 위에 뜨는 중앙 팝업
-  // 오버레이를 눌러도 닫히지 않는다 (버튼으로만 닫기)
+  // 오버레이를 눌러도 닫히지 않는다 (닫기 버튼으로만 닫기)
+  const overlay = (
+    <div className={`game-overlay level-${level} ${closing ? "closing" : ""}`} />
+  );
+
+  // level 1: 하단 시트 (시트 + 위에 떠 있는 닫기 버튼이 함께 움직인다)
+  if (level === 1) {
+    return (
+      <>
+        {overlay}
+        <div
+          className={`game-sheet ${closing ? "closing" : ""}`}
+          onAnimationEnd={(e) => {
+            if (closing && e.target === e.currentTarget) onClosed?.();
+          }}
+        >
+          <button
+            type="button"
+            className="game-float-close"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+          <div
+            className="game-modal level-1"
+            role="dialog"
+            aria-modal="true"
+            aria-label={label}
+          >
+            {children}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // level 2: 화면 중앙 팝업
   return (
     <>
+      {overlay}
       <div
-        className={`game-overlay level-${level} ${closing ? "closing" : ""}`}
-      />
-      <div
-        className={`game-modal level-${level} ${small ? "small" : ""} ${closing ? "closing" : ""}`}
+        className={`game-modal level-${level} ${small ? "small" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        onAnimationEnd={(e) => {
-          if (closing && e.target === e.currentTarget) onClosed?.();
-        }}
       >
         {children}
       </div>
@@ -214,6 +273,9 @@ export default function GameModal({ open, onClose }) {
   const [games, setGames] = useState(null); // null = 불러오는 중
   const [sortKey, setSortKey] = useState("name"); // "name" | "players"
   const [closing, setClosing] = useState(false); // 닫힘 애니메이션 중
+  const [played, setPlayed] = useState(null); // 플레이 완료 기록 (null = 불러오는 중)
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState("owned"); // "owned" | "played"
 
   // 중첩 모달: 게임 추가
   const [addOpen, setAddOpen] = useState(false);
@@ -241,6 +303,16 @@ export default function GameModal({ open, onClose }) {
     return () => unsub();
   }, []);
 
+  // 플레이 완료 기록 실시간 구독
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, ...PLAYED_DOC),
+      (snap) => setPlayed(snap.exists() ? snap.data().records || [] : []),
+      () => setPlayed([]),
+    );
+    return () => unsub();
+  }, []);
+
   // 모달이 열려 있는 동안 뒤 화면 스크롤 잠금
   useEffect(() => {
     if (!open) return;
@@ -256,6 +328,8 @@ export default function GameModal({ open, onClose }) {
   const requestClose = () => setClosing(true);
   const finishClose = () => {
     setClosing(false);
+    setQuery("");
+    setTab("owned");
     onClose();
   };
 
@@ -362,7 +436,21 @@ export default function GameModal({ open, onClose }) {
     }
   };
 
-  const sorted = games ? sortGames(games, sortKey) : [];
+  const searching = normalize(query) !== "";
+  const ownedList = games
+    ? sortGames(
+        games.filter((g) => matchesQuery(g.name, query)),
+        sortKey,
+      )
+    : [];
+  const playedList = played
+    ? sortGames(
+        played.filter((r) => matchesQuery(r.name, query)),
+        sortKey,
+      )
+    : [];
+  const visibleList = tab === "owned" ? ownedList : playedList;
+  const otherCount = tab === "owned" ? playedList.length : ownedList.length;
   const onEnter = (e) => e.key === "Enter" && handleAdd();
 
   return (
@@ -373,19 +461,51 @@ export default function GameModal({ open, onClose }) {
         level={1}
         closing={closing}
         onClosed={finishClose}
+        onClose={requestClose}
       >
-        <div className="game-modal-header">
-          <h2 className="game-modal-title">
-            게임 목록
-            {games && <span className="game-count">{games.length}</span>}
-          </h2>
+        <div className="game-tabs" role="tablist">
           <button
             type="button"
-            className="game-close-btn"
-            onClick={requestClose}
+            role="tab"
+            aria-selected={tab === "owned"}
+            className={`game-tab ${tab === "owned" ? "active" : ""}`}
+            onClick={() => setTab("owned")}
           >
-            닫기
+            보유 중 <span>{ownedList.length}</span>
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "played"}
+            className={`game-tab ${tab === "played" ? "active" : ""}`}
+            onClick={() => setTab("played")}
+          >
+            플레이 완료 <span>{playedList.length}</span>
+          </button>
+        </div>
+
+        <div className="game-body">
+        <div className="game-search">
+          <input
+            className="game-search-input"
+            type="text"
+            placeholder="게임 검색 (초성도 가능)"
+            value={query}
+            autoComplete="off"
+            enterKeyHint="search"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          />
+          {query && (
+            <button
+              type="button"
+              className="game-search-clear"
+              onClick={() => setQuery("")}
+              aria-label="검색어 지우기"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="game-sort">
@@ -406,12 +526,24 @@ export default function GameModal({ open, onClose }) {
         </div>
 
         <div className="game-list">
-          {games === null ? (
+          {games === null || played === null ? (
             <p className="game-empty">불러오는 중…</p>
-          ) : sorted.length === 0 ? (
-            <p className="game-empty">등록된 게임이 없어요</p>
-          ) : (
-            sorted.map((game) => (
+          ) : visibleList.length === 0 ? (
+            <p className="game-empty">
+              {searching
+                ? "일치하는 게임이 없어요"
+                : tab === "owned"
+                  ? "보유 중인 게임이 없어요"
+                  : "플레이한 기록이 없어요"}
+              {searching && otherCount > 0 && (
+                <span className="game-empty-hint">
+                  {tab === "owned" ? "플레이 완료" : "보유 중"} 탭에{" "}
+                  {otherCount}개 있어요
+                </span>
+              )}
+            </p>
+          ) : tab === "owned" ? (
+            ownedList.map((game) => (
               <div key={game.id} className="game-item">
                 <span className="game-item-name">{game.name}</span>
                 <span className="game-item-players">{formatPlayers(game)}</span>
@@ -425,12 +557,25 @@ export default function GameModal({ open, onClose }) {
                 </button>
               </div>
             ))
+          ) : (
+            playedList.map((rec) => (
+              <div key={rec.id} className="game-item">
+                <span className="game-item-name">{rec.name}</span>
+                <span className="game-item-players">{formatPlayers(rec)}</span>
+                <span className="game-item-rating">
+                  {rec.rating != null ? `★ ${rec.rating.toFixed(1)}` : ""}
+                </span>
+              </div>
+            ))
           )}
         </div>
 
-        <button type="button" className="game-open-add-btn" onClick={openAdd}>
-          + 게임 추가
-        </button>
+        {tab === "owned" && (
+          <button type="button" className="game-open-add-btn" onClick={openAdd}>
+            + 게임 추가
+          </button>
+        )}
+        </div>
       </Layer>
 
       {/* 2단계: 게임 추가 */}
