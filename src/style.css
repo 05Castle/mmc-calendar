@@ -697,7 +697,10 @@ body {
   min-width: 0;
   font-size: 15px;
   font-weight: 500;
-  word-break: keep-all;
+  /* 한 줄로 두고, 칸을 넘으면 … 으로 생략 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .game-item-players {
@@ -1022,7 +1025,7 @@ body {
   white-space: nowrap;
 }
 
-/* 임시: 플레이 기록 일괄 등록 (admin) */
+/* 플레이 기록 일괄 등록 (admin) */
 .bulk-textarea {
   width: 100%;
   background: var(--surface2);
@@ -1281,4 +1284,125 @@ body {
   padding: 18px;
   border-radius: 16px;
   font-size: 17px;
+}
+
+/* 플레이 기록 관리 (admin) */
+.played-admin-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.played-admin-tools .game-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.played-admin-filter {
+  flex: none;
+  background: var(--surface2);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.played-admin-filter.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.played-admin-list {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+
+.played-admin-row {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #3a3a3a;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.played-admin-row:last-child {
+  border-bottom: none;
+}
+
+.played-admin-row:active {
+  background: var(--surface2);
+}
+
+.played-admin-legacy {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.played-admin-legacy button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: "Noto Sans KR", sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 기록 수정 팝업 */
+.played-edit-title {
+  margin-bottom: 16px;
+}
+
+.played-edit-rating {
+  text-align: center;
+}
+
+.played-edit-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: "Noto Sans KR", sans-serif;
+  text-decoration: underline;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.played-edit-delete {
+  display: block;
+  margin: 14px auto 0;
+  background: none;
+  border: none;
+  color: #ff7b7b;
+  font-size: 13px;
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.played-edit-delete:disabled {
+  opacity: 0.5;
+}
+
+.game-item-rating.none {
+  color: var(--text-muted);
+  font-weight: 500;
 }

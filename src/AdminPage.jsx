@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { db } from "./firebase";
+import { MAX_NAME_LENGTH, normalizeName } from "./gameRules";
+import PlayedRecordsAdmin from "./PlayedRecordsAdmin";
 import { doc, getDoc, setDoc, deleteDoc, deleteField, onSnapshot, runTransaction } from "firebase/firestore";
 
-// ===== 임시 기능: 플레이 완료 기록 일괄 등록 =====
-// 과거에 플레이한 게임을 config/played 에 한꺼번에 넣기 위한 도구예요.
-// 등록이 끝나면 이 블록, 아래 bulk 관련 state/함수, "플레이 기록 일괄 등록" 섹션을 삭제하세요.
-const normalizeName = (str) =>
-  str.toLowerCase().replace(/[\s\-_:'’".,!?·&]/g, "");
-
+// ===== 플레이 완료 기록 일괄 등록 =====
+// 플레이한 게임을 config/played 에 한꺼번에 넣는 도구예요.
 const makeRecordId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -58,7 +56,8 @@ function parseBulk(text, existingRecords) {
     const m = playersText.match(PLAYERS_RE);
     if (!name) return fail("제목이 비어 있어요");
     if (!m) return fail("인원수는 4 또는 2-5 형태로 적어주세요");
-    if (name.length > 40) return fail("제목이 너무 길어요 (40자 이하)");
+    if (name.length > MAX_NAME_LENGTH)
+      return fail(`제목이 너무 길어요 (${MAX_NAME_LENGTH}자 이하)`);
 
     const min = Number(m[1]);
     const max = m[2] ? Number(m[2]) : min;
@@ -105,7 +104,7 @@ export default function AdminPage() {
   const [manualMonth, setManualMonth] = useState(now.getMonth());
   const [manualDate, setManualDate] = useState("");
   const [savedManualDate, setSavedManualDate] = useState(null);
-  const [bulkText, setBulkText] = useState(""); // 임시: 일괄 등록
+  const [bulkText, setBulkText] = useState(""); // 일괄 등록
   const [playedRecords, setPlayedRecords] = useState([]);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMsg, setBulkMsg] = useState("");
@@ -142,7 +141,7 @@ export default function AdminPage() {
     return () => unsub();
   }, []);
 
-  // 임시: 플레이 완료 기록 구독
+  // 플레이 완료 기록 구독
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "config", "played"), (snap) => {
       setPlayedRecords(snap.exists() ? snap.data().records || [] : []);
@@ -187,7 +186,6 @@ export default function AdminPage() {
               min: g.min,
               max: g.max,
               rating: g.rating, // 숫자 또는 null
-              playedAt: null,
             })),
           ],
         });
@@ -452,7 +450,7 @@ export default function AdminPage() {
         {msg && <p className="admin-msg">{msg}</p>}
       </section>
 
-      {/* 임시: 플레이 기록 일괄 등록 (등록이 끝나면 삭제) */}
+      {/* 플레이 기록 일괄 등록 */}
       <section className="admin-section">
         <h2 className="admin-section-title">플레이 기록 일괄 등록</h2>
         <p className="admin-desc">
@@ -506,6 +504,8 @@ export default function AdminPage() {
         </button>
         {bulkMsg && <p className="admin-msg">{bulkMsg}</p>}
       </section>
+
+      <PlayedRecordsAdmin records={playedRecords} />
 
       <a className="back-link" href="/">
         ← 멤버 화면으로
