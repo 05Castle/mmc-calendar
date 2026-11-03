@@ -1260,6 +1260,11 @@ body {
 .game-item {
   min-height: 58px;
   padding: 0 2px;
+  /* 목록 글자는 선택할 일이 없다 (터치했을 때 글자 선택·강조로 … 표시가 바뀌는 것 방지) */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .game-item-name {
