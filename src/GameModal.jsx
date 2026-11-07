@@ -4,8 +4,11 @@ import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 import { MAX_NAME_LENGTH, normalizeName, matchesQuery } from "./gameRules";
 import StarRating from "./StarRating";
 
-const GAMES_DOC = ["config", "games"];
-const PLAYED_DOC = ["config", "played"];
+// 저장소: 전체 모드와 2인 모드는 서로 완전히 별개의 문서를 쓴다
+const STORES = {
+  normal: { key: "normal", games: ["config", "games"], played: ["config", "played"] },
+  duo: { key: "duo", games: ["config", "duoGames"], played: ["config", "duoPlayed"] },
+};
 
 function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -27,8 +30,8 @@ function sortGames(games, sortKey) {
 }
 
 // 동시에 여러 명이 수정해도 덮어쓰지 않도록 트랜잭션으로 읽고-수정-저장
-function updateGames(updater) {
-  const ref = doc(db, ...GAMES_DOC);
+function updateGames(store, updater) {
+  const ref = doc(db, ...store.games);
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const current = snap.exists() ? snap.data().games || [] : [];
@@ -36,10 +39,11 @@ function updateGames(updater) {
   });
 }
 
-// 플레이 완료: 게임 목록에서 제거 + config/played 기록 추가를 한 트랜잭션으로 처리
-function markPlayed(game, rating) {
-  const gamesRef = doc(db, ...GAMES_DOC);
-  const playedRef = doc(db, ...PLAYED_DOC);
+// 플레이 완료: 게임 목록에서 제거 + 플레이 기록 추가를 한 트랜잭션으로 처리
+// 전체 모드 기록에는 인원수가 함께 남고, 2인 모드 기록은 이름과 별점만 남는다
+function markPlayed(store, game, rating) {
+  const gamesRef = doc(db, ...store.games);
+  const playedRef = doc(db, ...store.played);
   return runTransaction(db, async (tx) => {
     const gSnap = await tx.get(gamesRef);
     const pSnap = await tx.get(playedRef);
@@ -47,19 +51,14 @@ function markPlayed(game, rating) {
     const target = current.find((g) => g.id === game.id);
     if (!target) return; // 다른 사람이 이미 처리함 → 기록 중복 방지
     const records = pSnap.exists() ? pSnap.data().records || [] : [];
+    const record = { id: target.id, name: target.name };
+    if (store.key === "normal") {
+      record.min = target.min;
+      record.max = target.max;
+    }
+    record.rating = rating; // 0.5 단위 숫자, 건너뛰면 null
     tx.set(gamesRef, { games: current.filter((g) => g.id !== game.id) });
-    tx.set(playedRef, {
-      records: [
-        ...records,
-        {
-          id: target.id,
-          name: target.name,
-          min: target.min,
-          max: target.max,
-          rating, // 0.5 단위 숫자, 건너뛰면 null
-        },
-      ],
-    });
+    tx.set(playedRef, { records: [...records, record] });
   });
 }
 
@@ -169,11 +168,15 @@ function Layer({
   );
 }
 
-export default function GameModal({ open, onClose }) {
-  const [games, setGames] = useState(null); // null = 불러오는 중
+export default function GameModal({ open, onClose, duo = false }) {
+  const store = duo ? STORES.duo : STORES.normal;
+  // 불러온 데이터가 어느 저장소의 것인지 함께 기억 (모드가 바뀌면 이전 데이터를 보여주지 않음)
+  const [gamesData, setGamesData] = useState({ key: null, list: null });
+  const [playedData, setPlayedData] = useState({ key: null, list: null });
+  const games = gamesData.key === store.key ? gamesData.list : null; // null = 불러오는 중
+  const played = playedData.key === store.key ? playedData.list : null;
   const [sortKey, setSortKey] = useState("name"); // "name" | "players"
   const [closing, setClosing] = useState(false); // 닫힘 애니메이션 중
-  const [played, setPlayed] = useState(null); // 플레이 완료 기록 (null = 불러오는 중)
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("owned"); // "owned" | "played"
   const listRef = useRef(null); // 목록 스크롤 영역
@@ -194,25 +197,33 @@ export default function GameModal({ open, onClose }) {
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  // 게임 목록 실시간 구독
+  // 게임 목록 실시간 구독 (모드가 바뀌면 다른 문서를 구독)
   useEffect(() => {
     const unsub = onSnapshot(
-      doc(db, ...GAMES_DOC),
-      (snap) => setGames(snap.exists() ? snap.data().games || [] : []),
-      () => setGames([]),
+      doc(db, ...store.games),
+      (snap) =>
+        setGamesData({
+          key: store.key,
+          list: snap.exists() ? snap.data().games || [] : [],
+        }),
+      () => setGamesData({ key: store.key, list: [] }),
     );
     return () => unsub();
-  }, []);
+  }, [store.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 플레이 완료 기록 실시간 구독
   useEffect(() => {
     const unsub = onSnapshot(
-      doc(db, ...PLAYED_DOC),
-      (snap) => setPlayed(snap.exists() ? snap.data().records || [] : []),
-      () => setPlayed([]),
+      doc(db, ...store.played),
+      (snap) =>
+        setPlayedData({
+          key: store.key,
+          list: snap.exists() ? snap.data().records || [] : [],
+        }),
+      () => setPlayedData({ key: store.key, list: [] }),
     );
     return () => unsub();
-  }, []);
+  }, [store.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 탭·정렬·검색어가 바뀌면 목록을 맨 위로 (실시간 데이터 갱신 때는 건드리지 않음)
   useEffect(() => {
@@ -266,21 +277,27 @@ export default function GameModal({ open, onClose }) {
     const max = isRange ? Number(maxPlayers) : min;
 
     if (!trimmed) return setAddError("게임 이름을 입력해주세요.");
-    if (!Number.isInteger(min) || min < 1 || min > 9)
-      return setAddError("인원수는 1~9 사이 숫자로 입력해주세요.");
-    if (isRange && (!Number.isInteger(max) || max < 1 || max > 9))
-      return setAddError("최대 인원수를 1~9 사이 숫자로 입력해주세요.");
-    if (max < min) return setAddError("최대 인원이 최소 인원보다 작아요.");
+    // 2인 모드는 인원수를 받지 않는다
+    if (!duo) {
+      if (!Number.isInteger(min) || min < 1 || min > 9)
+        return setAddError("인원수는 1~9 사이 숫자로 입력해주세요.");
+      if (isRange && (!Number.isInteger(max) || max < 1 || max > 9))
+        return setAddError("최대 인원수를 1~9 사이 숫자로 입력해주세요.");
+      if (max < min) return setAddError("최대 인원이 최소 인원보다 작아요.");
+    }
 
     setSaving(true);
     setAddError("");
     try {
-      await updateGames((current) => {
+      await updateGames(store, (current) => {
         const dup = current.some(
           (g) => g.name.toLowerCase() === trimmed.toLowerCase(),
         );
         if (dup) throw new Error("DUPLICATE");
-        return [...current, { id: makeId(), name: trimmed, min, max }];
+        const game = duo
+          ? { id: makeId(), name: trimmed }
+          : { id: makeId(), name: trimmed, min, max };
+        return [...current, game];
       });
       setAddOpen(false);
     } catch (e) {
@@ -317,7 +334,7 @@ export default function GameModal({ open, onClose }) {
     setDeleting(true);
     setDeleteError("");
     try {
-      await updateGames((current) =>
+      await updateGames(store, (current) =>
         current.filter((g) => g.id !== deleteTarget.id),
       );
       setDeleteTarget(null);
@@ -333,7 +350,7 @@ export default function GameModal({ open, onClose }) {
     setDeleting(true);
     setDeleteError("");
     try {
-      await markPlayed(deleteTarget, value);
+      await markPlayed(store, deleteTarget, value);
       setDeleteTarget(null);
     } catch {
       setDeleteError("저장에 실패했어요. 잠시 후 다시 시도해주세요.");
@@ -343,17 +360,14 @@ export default function GameModal({ open, onClose }) {
   };
 
   const searching = normalizeName(query) !== "";
+  // 2인 모드에는 인원수가 없어서 이름순으로만 정렬한다
+  const effectiveSort = duo ? "name" : sortKey;
+  const visibleFilter = (item) => matchesQuery(item.name, query);
   const ownedList = games
-    ? sortGames(
-        games.filter((g) => matchesQuery(g.name, query)),
-        sortKey,
-      )
+    ? sortGames(games.filter(visibleFilter), effectiveSort)
     : [];
   const playedList = played
-    ? sortGames(
-        played.filter((r) => matchesQuery(r.name, query)),
-        sortKey,
-      )
+    ? sortGames(played.filter(visibleFilter), effectiveSort)
     : [];
   const visibleList = tab === "owned" ? ownedList : playedList;
   const otherCount = tab === "owned" ? playedList.length : ownedList.length;
@@ -414,6 +428,7 @@ export default function GameModal({ open, onClose }) {
           )}
         </div>
 
+        {!duo && (
         <div className="game-sort">
           <button
             type="button"
@@ -430,6 +445,7 @@ export default function GameModal({ open, onClose }) {
             인원수순
           </button>
         </div>
+        )}
 
         <div className="game-list" ref={listRef}>
           {games === null || played === null ? (
@@ -452,7 +468,9 @@ export default function GameModal({ open, onClose }) {
             ownedList.map((game) => (
               <div key={game.id} className="game-item">
                 <span className="game-item-name">{game.name}</span>
-                <span className="game-item-players">{formatPlayers(game)}</span>
+                {!duo && (
+                  <span className="game-item-players">{formatPlayers(game)}</span>
+                )}
                 <button
                   type="button"
                   className="game-delete-btn"
@@ -467,7 +485,9 @@ export default function GameModal({ open, onClose }) {
             playedList.map((rec) => (
               <div key={rec.id} className="game-item">
                 <span className="game-item-name">{rec.name}</span>
-                <span className="game-item-players">{formatPlayers(rec)}</span>
+                {!duo && (
+                  <span className="game-item-players">{formatPlayers(rec)}</span>
+                )}
                 <span className="game-item-rating">
                   {rec.rating != null ? `★ ${rec.rating.toFixed(1)}` : ""}
                 </span>
@@ -498,6 +518,8 @@ export default function GameModal({ open, onClose }) {
               onChange={(e) => setName(e.target.value)}
               onKeyDown={onEnter}
             />
+            {!duo && (
+              <>
             <div className="game-mode-tabs" role="tablist">
               <button
                 type="button"
@@ -548,6 +570,8 @@ export default function GameModal({ open, onClose }) {
               )}
               <span className="game-unit">명</span>
             </div>
+              </>
+            )}
             {addError && <p className="game-error">{addError}</p>}
           </div>
 

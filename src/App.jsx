@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { db } from "./firebase";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteField, onSnapshot } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import AdminPage from "./AdminPage";
 import GameModal, { GameButton } from "./GameModal";
+import SheetNameButton from "./SheetNameButton";
+import { DUO_MEMBERS, getDuoCommonDates, useLongPress } from "./duo";
 
 const BASE_MEMBERS = ["다혜", "세원", "오성", "태현", "해리"];
 
@@ -36,6 +39,19 @@ function formatDateInfo(dateStr) {
   return { day: d.getDate(), dow: days[d.getDay()] };
 }
 
+// 2인 모드 달력 카드: 길게 누르면 onToggle(날짜)이 호출된다 (canToggle일 때만)
+function DuoDateCard({ dateStr, className, canToggle, onToggle, children }) {
+  const press = useLongPress(() => onToggle(dateStr));
+  return (
+    <div
+      className={`date-card duo-card ${canToggle ? "duo-pressable" : ""} ${className}`}
+      {...(canToggle ? press.handlers : {})}
+    >
+      {children}
+    </div>
+  );
+}
+
 function MemberPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -50,6 +66,11 @@ function MemberPage() {
   const [submitted, setSubmitted] = useState(false);
   const [guests, setGuests] = useState([]);
   const [extraDates, setExtraDates] = useState([]);
+  const [duoConfirmed, setDuoConfirmed] = useState({}); // 2인 모드에서 확정한 날짜들 { "2026-11-07": true }
+  // 2인 모드: duoMode = 화면 내용, duoTheme = 색 반전 (전환 효과가 끝나면 켜진다)
+  const [duoMode, setDuoMode] = useState(false);
+  const [duoTheme, setDuoTheme] = useState(false);
+  const [fx, setFx] = useState(null); // 전환 효과 { x, y, toDuo }
 
   const monthKey = getMonthKey(year, month);
   const allMembers = [...BASE_MEMBERS, ...guests].sort((a, b) =>
@@ -91,10 +112,12 @@ function MemberPage() {
         setAllVotes({});
         setPassList([]);
         setManualConfirmedDate(null);
+        setDuoConfirmed({});
         return;
       }
       const data = snap.data();
       setManualConfirmedDate(data.manualConfirmedDate || null);
+      setDuoConfirmed(data.duoConfirmed || {});
       const merged = {};
       const passes = [];
 
@@ -129,6 +152,43 @@ function MemberPage() {
       }
     });
   }, [selectedName, monthKey]);
+
+  // 색 반전은 <html>에 duo 클래스를 붙여서 적용 (페이지를 벗어나면 정리)
+  useEffect(() => {
+    document.documentElement.classList.toggle("duo", duoTheme);
+  }, [duoTheme]);
+  useEffect(() => () => document.documentElement.classList.remove("duo"), []);
+
+  // 2인 모드 전환: 실제 화면은 효과가 끝날 때 바뀐다.
+  // 효과 동안에는 "바뀐 뒤의 화면"을 한 장 더 그려서 원 안에서만 보이게 한다.
+  const applyMode = (toDuo) => {
+    setDuoMode(toDuo);
+    setDuoTheme(toDuo);
+    if (toDuo) {
+      setSelectedName("");
+      setMyDates([]);
+      setSubmitted(false);
+    }
+  };
+  const switchMode = (toDuo, pos) => {
+    if (fx) return;
+    setSheetOpen(false);
+    if (toDuo) navigator.vibrate?.(40);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      applyMode(toDuo);
+      return;
+    }
+    setFx({
+      x: pos?.x || window.innerWidth / 2,
+      y: pos?.y || window.innerHeight / 2,
+      scrollY: window.scrollY,
+      toDuo,
+    });
+  };
+  const finishFx = () => {
+    applyMode(fx.toDuo);
+    setFx(null);
+  };
 
   const handleSelectName = (name) => {
     setSelectedName(name);
@@ -234,8 +294,31 @@ function MemberPage() {
       )[0]?.[0] || null;
   const confirmedDate = manualConfirmedDate || automaticConfirmedDate;
 
-  return (
-    <div className="app">
+  // 2인(벙개) 모드: 두 사람이 모두 투표한 날은 후보, 직접 길게 눌러 확정한 날은 확정
+  const duoCommonDates = getDuoCommonDates(allVotes);
+  const duoConfirmedDates = Object.keys(duoConfirmed).filter(
+    (d) => duoConfirmed[d] && d.startsWith(`${monthPrefix}-`),
+  );
+  const hasDuoConfirmed = duoConfirmedDates.length > 0;
+  const duoAllDates = [...new Set([...allDates, ...duoConfirmedDates])].sort();
+
+  // 날짜 하나의 확정을 켜고 끈다 (날짜별로 따로 저장해서 서로 덮어쓰지 않는다)
+  const toggleDuoConfirm = async (dateStr) => {
+    const turnOn = !duoConfirmed[dateStr];
+    try {
+      await setDoc(
+        doc(db, "votes", monthKey),
+        { duoConfirmed: { [dateStr]: turnOn ? true : deleteField() } },
+        { merge: true },
+      );
+    } catch (e) {
+      console.error("벙개 날짜 저장 실패", e);
+    }
+  };
+
+  // 모드별 본문 (월 이동 ~ 날짜 카드 ~ 투표 버튼)
+  const renderBody = (isDuo) => (
+    <>
       <div className="month-nav">
         <button
           className={`nav-btn ${isPrevDisabled ? "disabled" : ""}`}
@@ -254,20 +337,75 @@ function MemberPage() {
 
       <div className="name-section">
         <GameButton onClick={() => setGameOpen(true)} />
-        <button className="name-trigger" onClick={() => setSheetOpen(true)}>
-          {selectedName || "이름을 선택하세요"}
-          <span className="name-trigger-arrow">▾</span>
-        </button>
+        {isDuo ? (
+          <button
+            className="name-trigger duo-exit"
+            onClick={(e) => switchMode(false, { x: e.clientX, y: e.clientY })}
+          >
+            <strong>2인 모드</strong>
+            <span className="name-trigger-arrow">전체 모드로 ⟲</span>
+          </button>
+        ) : (
+          <button className="name-trigger" onClick={() => setSheetOpen(true)}>
+            {selectedName || "이름을 선택하세요"}
+            <span className="name-trigger-arrow">▾</span>
+          </button>
+        )}
       </div>
 
-      {passList.length > 0 && (
+      {!isDuo && passList.length > 0 && (
         <p className="pass-notice">
           이번 달은 참여가 어려워요😢 : {passList.join(", ")}
         </p>
       )}
 
+      {isDuo && duoCommonDates.length === 0 && !hasDuoConfirmed && (
+        <p className="duo-summary">아직 두 사람이 모두 가능한 날이 없어요</p>
+      )}
+
       <div className="dates-grid">
-        {allDates.map((dateStr) => {
+        {isDuo
+          ? duoAllDates.map((dateStr) => {
+              const { day, dow } = formatDateInfo(dateStr);
+              const isCommon = duoCommonDates.includes(dateStr);
+              const isConfirmed = !!duoConfirmed[dateStr];
+              const isRegular = dateStr === confirmedDate;
+              return (
+                <DuoDateCard
+                  key={dateStr}
+                  dateStr={dateStr}
+                  className={`${isConfirmed ? "meeting-confirmed" : ""} ${isCommon || isConfirmed ? "" : "duo-off"}`}
+                  canToggle={isConfirmed || (isCommon && !isRegular)}
+                  onToggle={toggleDuoConfirm}
+                >
+                  <span className="date-dow">{dow}</span>
+                  <span className="date-day">{day}</span>
+                  <span className="date-count">
+                    {isConfirmed ? (
+                      <span className="count-badge">확정</span>
+                    ) : isRegular ? (
+                      <span className="duo-regular">정규모임</span>
+                    ) : isCommon ? (
+                      hasDuoConfirmed ? (
+                        <span className="count-badge duo-soft">예비</span>
+                      ) : (
+                        <span className="count-badge">후보</span>
+                      )
+                    ) : (
+                      <span className="count-empty">-</span>
+                    )}
+                  </span>
+                  <span className="voters">
+                    {isCommon
+                      ? DUO_MEMBERS.slice()
+                          .sort((a, b) => a.localeCompare(b, "ko"))
+                          .join(", ")
+                      : ""}
+                  </span>
+                </DuoDateCard>
+              );
+            })
+          : allDates.map((dateStr) => {
           const { day, dow } = formatDateInfo(dateStr);
           const count = allVotes[dateStr]?.length || 0;
           const voters = (allVotes[dateStr] || [])
@@ -304,7 +442,7 @@ function MemberPage() {
         })}
       </div>
 
-      {selectedName && (
+      {!isDuo && selectedName && (
         <div className="submit-wrap">
           <div className="submit-row">
             <button className="pass-btn" onClick={handlePass}>
@@ -322,29 +460,60 @@ function MemberPage() {
           )}
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div className="app">
+      {renderBody(duoMode)}
 
       <div
         className={`sheet-overlay ${sheetOpen ? "open" : ""}`}
         onClick={() => setSheetOpen(false)}
       />
 
-      <GameModal open={gameOpen} onClose={() => setGameOpen(false)} />
+      <GameModal open={gameOpen} onClose={() => setGameOpen(false)} duo={duoMode} />
 
       <div className={`sheet ${sheetOpen ? "open" : ""}`}>
         <div className="sheet-handle" />
         <p className="sheet-title">사칭금지</p>
         <div className="sheet-grid">
           {allMembers.map((name) => (
-            <button
+            <SheetNameButton
               key={name}
-              className={`sheet-name-btn ${selectedName === name ? "active" : ""}`}
-              onClick={() => handleSelectName(name)}
-            >
-              {name}
-            </button>
+              name={name}
+              active={selectedName === name}
+              onSelect={handleSelectName}
+              onDuo={(pos) => switchMode(true, pos)}
+            />
           ))}
         </div>
       </div>
+
+      {fx &&
+        createPortal(
+          <>
+            {/* 바뀐 뒤의 화면을 원 안에서만 보여준다 (자체 색 반전으로 최종 모습과 동일) */}
+            <div
+              className="duo-layer"
+              aria-hidden="true"
+              inert
+              style={{ "--fx-x": `${fx.x}px`, "--fx-y": `${fx.y}px` }}
+              onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget) finishFx();
+              }}
+            >
+              <div
+                className="app"
+                style={{ transform: `translateY(${-fx.scrollY}px)` }}
+              >
+                {renderBody(fx.toDuo)}
+              </div>
+            </div>
+            <div className="duo-ring" style={{ left: fx.x, top: fx.y }} />
+          </>,
+          document.body,
+        )}
     </div>
   );
 }

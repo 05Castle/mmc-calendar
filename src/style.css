@@ -1411,3 +1411,108 @@ body {
   color: var(--text-muted);
   font-weight: 500;
 }
+
+/* ===== 2인(벙개) 모드 ===== */
+/* 색 반전: 연두+검정 → 보라+흰색. 의미가 있는 색(삭제·오류·평일 표시)은 원래 색으로 되돌린다 */
+html.duo {
+  filter: invert(1);
+}
+
+html.duo .game-delete-btn,
+html.duo .game-error,
+html.duo .game-confirm-btn.danger,
+html.duo .date-card.extra .date-dow {
+  filter: invert(1);
+}
+
+/* 이름 버튼: 길게 눌렀을 때 글자 선택·메뉴가 뜨지 않게 */
+.sheet-name-btn {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.name-trigger.duo-exit strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.duo-summary {
+  margin: 0 2px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.date-card.duo-card {
+  cursor: default;
+}
+
+/* 길게 눌러 확정하는 카드: 글자 선택·길게 누르기 메뉴가 뜨지 않게 */
+.date-card.duo-pressable {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.date-card.duo-off {
+  opacity: 0.4;
+}
+
+.count-badge.duo-soft {
+  opacity: 0.55;
+}
+
+.duo-regular {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 모드 전환 효과: 바뀐 화면이 원 안에서만 보이고, 원이 번진다 */
+.duo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  filter: invert(1); /* 최종 화면(반전)과 똑같이 보이도록 */
+  clip-path: circle(0 at var(--fx-x) var(--fx-y));
+  animation: duo-grow 0.85s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+}
+
+/* 전체 모드로 돌아갈 때, 원 안 화면에는 평일 표시 색 보정이 이중으로 걸리지 않게 */
+html.duo .duo-layer .date-card.extra .date-dow {
+  filter: none;
+}
+
+.duo-ring {
+  position: fixed;
+  z-index: 1001;
+  pointer-events: none;
+  width: 300vmax;
+  height: 300vmax;
+  margin: -150vmax 0 0 -150vmax;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.7);
+  mix-blend-mode: difference;
+  transform: scale(0);
+  animation: duo-ring 0.85s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+}
+
+@keyframes duo-grow {
+  to {
+    clip-path: circle(150vmax at var(--fx-x) var(--fx-y));
+  }
+}
+
+@keyframes duo-ring {
+  to {
+    transform: scale(1);
+  }
+}
